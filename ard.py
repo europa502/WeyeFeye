@@ -10,9 +10,13 @@ class WeyeFeye:
 	
 	
 	def __init__(self,port,iface):
-		self.port=port
+		self.port='/dev/'+port
 		self.iface=iface
 		self.screenlock = threading.Semaphore(value=1)
+		self.angle=10
+		self.ard = serial.Serial(self.port,9600,parity=serial.PARITY_NONE,stopbits=serial.STOPBITS_ONE,bytesize=serial.EIGHTBITS,)
+		self.ard.flush()
+	
 	def hopper(self):
 	    n = 1
 	    stop_hopper = False
@@ -71,29 +75,29 @@ class WeyeFeye:
 		sniff(iface=self.iface, prn = wifi.PacketHandler)
 
 
-	def serial_controller(self):
-		#The following line is for serial over GPIO
-		port = '/dev/tty'+self.port
-
-		angle=10
-		ard = serial.Serial(port,9600,parity=serial.PARITY_NONE,stopbits=serial.STOPBITS_ONE,bytesize=serial.EIGHTBITS,)
-		ard.flush()
-		for angleTB in range(0,90):
-			for angleLR in reversed(range(50,170)):
+	def serial_controller(self,angleLR,angleTB):
+				
 				data="<"+str(angleTB)+","+str(angleLR)+">"	 
-				ard.write(data)
+				self.ard.write(data)
 				check="turning servo to "+str(angleTB)+","+str(angleLR)+ " degrees"
-				self.screenlock.acquire()
-				print check
-				print ard.readline()
-				#if check in ard.readline():
-				#	print "yes"
+				#self.screenlock.acquire()
+				#print check
+				#print ard.readline()
+				if check in self.ard.readline():
+					print "yes"
 				#print ard.readline()
 				#print "turning servo to "+str(angleTB)+","+str(angleLR)+ " degrees\n"
-				print data
-				self.screenlock.release()
-				ard.flush()
+				#print data
+				#self.screenlock.release()
+				self.ard.flush()
 				time.sleep(1)
+	def sweeper(self):
+		for angleTB in reversed(range(90,170)):
+			for angleLR in (range(50,170)):
+				self.serial_controller(angleLR,angleTB)
+			for angleLR in reversed(range(50,170)):
+				self.serial_controller(angleLR,angleTB)
+			angleTB-=1
 				
 if __name__ == '__main__':
 
@@ -108,7 +112,7 @@ if __name__ == '__main__':
 	wifi=WeyeFeye(port,iface)
 	thread1=threading.Thread(target=wifi.hopper, name="hopper")
 	thread2=threading.Thread(target=wifi.run_sniffer, name="run_sniffer")
-	thread3=threading.Thread(target=wifi.serial_controller, name="controller")	
+	thread3=threading.Thread(target=wifi.sweeper, name="sweeper")	
 
     #thread1.daemon = True
    	thread1.start()
