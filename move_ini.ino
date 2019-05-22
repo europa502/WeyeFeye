@@ -11,19 +11,14 @@ char receivedChars[numChars];
 
 boolean newData = false;
 
-void setup()
-
+void caliberate()
 {
-
-Serial.begin(9600);
-while (!Serial);
 Serial.println("-------------------------");
 Serial.println("ARos is loading....");
 delay(1000);
 Serial.println("ARos loaded succesfully");
 Serial.println("-------------------------");
-myservoLR.attach(9);
-myservoTB.attach(10);
+
 
 Serial.println("calibrating servoLR...");
 for(pos = 0; pos <= 180; pos += 1)
@@ -52,6 +47,21 @@ Serial.println("Command input online, write command to perform action");
 Serial.println("-------------------------");
 
 }
+
+
+void setup()
+
+{
+myservoLR.attach(9);
+myservoTB.attach(10);
+Serial.begin(9600);
+while (!Serial);
+recvWithStartEndMarkers();
+if (receivedChars[0]=='@')
+{caliberate();
+}
+}
+
 
 void recvWithStartEndMarkers() {
     static boolean recvInProgress = false;
@@ -94,11 +104,14 @@ if (Serial.available())
 
 
 { recvWithStartEndMarkers();
-
-
+  if (receivedChars[0]=='@')
+  {caliberate();
+  }
+  newData=false;
 sscanf(receivedChars, "%d,%d", &pt1,&pt2);
 //pt1=pt1s.toInt();
 //pt2=pt2s.toInt();
+
 if (pt1 >= 3 && pt1 < 170)
   if (pt2 >= 3 && pt2 < 170)
 {  myservoLR.write(pt1);
@@ -108,11 +121,11 @@ if (pt1 >= 3 && pt1 < 170)
    Serial.print(",");
    Serial.print(pt2); 
    Serial.println(" degrees");
-  
+    
+   //Serial.print(".");
 } 
 }
 
 }
-
 
 
