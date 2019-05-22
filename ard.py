@@ -1,32 +1,51 @@
 import serial
-import syslog
 from scapy.all import *
 from netaddr.core import NotRegisteredError
 from netaddr import *
 import threading
-import os, time,argparse
+import os, time, argparse
 
 class WeyeFeye:
 	
 	
-	def __init__(self,port,iface):
+	def __init__(self,port,iface,cal,ch):
 		self.port='/dev/'+port
 		self.iface=iface
+		self.cal=cal
+		self.channel=ch
+		self.avail_ch=[]
 		self.screenlock = threading.Semaphore(value=1)
 		self.angle=10
 		self.ard = serial.Serial(self.port,9600,parity=serial.PARITY_NONE,stopbits=serial.STOPBITS_ONE,bytesize=serial.EIGHTBITS,)
 		self.ard.flush()
-	
+		self.position=""
+		os.system("mkdir -p /root/weyefeye/data/")
+		self.data_file= open("/root/weyefeye/data/data.csv","w+")
+		self.data_file.write("BSSID,ESSID,RSSI,POSITION_Y,POSITION_X\n")
+		if self.cal=="True" or self.cal=="true":
+			self.ard.write("<@>")
+			for lines in range(12):
+				print self.ard.readline()
+			
+	def basic_scan(self):
+		
 	def hopper(self):
-	    n = 1
-	    stop_hopper = False
-	    while not stop_hopper:
+	    if self.channels=="all":
 	    	for n in range (1,14):
-			time.sleep(0.50)
+			time.sleep(1/13)
 			os.system('iwconfig %s channel %d' % (self.iface, n))
 			self.screenlock.acquire()
 			print "Current Channel %d" % (n)
 	    	        self.screenlock.release()
+	    else:
+	    	basic_scan()
+	    	for i in self.avail_ch:
+	    		time.sleep(1/len(self.avail_ch))
+	    		os.system('iwconfig %s channel %d' % (self.iface, n))
+			self.screenlock.acquire()
+			print "Current Channel %d" % (n)
+	    	        self.screenlock.release()
+	    		
 
 	def PacketHandler(self,pkt) :
 	   
@@ -40,10 +59,11 @@ class WeyeFeye:
 		    #print "rssi", rssi
 		except:
 		    rssi = -100
-		self.screenlock.acquire()
-		print "BSSID:    ","WiFi signal strength:", rssi, "dBm of", pkt.addr2, pkt.info, os.popen('iwlist ' +self.iface+' channel').read()[-13:][:-2]
+		#self.screenlock.acquire()
+		#print "BSSID:    ","WiFi signal strength:", rssi, "dBm of", pkt.addr2, pkt.info#, os.popen('iwlist ' +self.iface+' channel').read()[-13:][:-2]
+		self.data_file.write(pkt.addr2+","+pkt.info+","+str(rssi)+","+self.position+"\n")
 		
-		self.screenlock.release()
+		#self.screenlock.release()
 		
 	   '''if pkt.type==0 and pkt.subtype == 4:
 		try:
@@ -80,15 +100,14 @@ class WeyeFeye:
 				data="<"+str(angleTB)+","+str(angleLR)+">"	 
 				self.ard.write(data)
 				check="turning servo to "+str(angleTB)+","+str(angleLR)+ " degrees"
-				#self.screenlock.acquire()
+				self.screenlock.acquire()
 				#print check
 				#print ard.readline()
 				if check in self.ard.readline():
-					print "yes"
-				#print ard.readline()
-				#print "turning servo to "+str(angleTB)+","+str(angleLR)+ " degrees\n"
-				#print data
-				#self.screenlock.release()
+					self.position=str(angleTB)+","+str(angleLR)
+				#print check	
+				#print self.ard.readline()
+				self.screenlock.release()
 				self.ard.flush()
 				time.sleep(1)
 	def sweeper(self):
@@ -98,6 +117,7 @@ class WeyeFeye:
 			for angleLR in reversed(range(50,170)):
 				self.serial_controller(angleLR,angleTB)
 			angleTB-=1
+		
 				
 if __name__ == '__main__':
 
@@ -105,11 +125,14 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 		
 	parser.add_argument('-p','--port',type=str,default='', help='Arduino port')
-	parser.add_argument('-i','--iface',type=str,default='', help='monitor interface')
+	parser.add_argument('-i','--iface',type=str,default='', help='Monitor interface')
+	parser.add_argument('-k','--caliberate',type=str,default='false', help='Caliberate the Servoes')
+	parser.add_argument('-c','--channels',type=str,default='restricted', help='Restrict scanning channels')
 	iface= parser.parse_args().iface
 	port= parser.parse_args().port
-	
-	wifi=WeyeFeye(port,iface)
+	cal=parser.parse_args().caliberate
+	ch=parser.parse_args().channels
+	wifi=WeyeFeye(port,iface,cal,ch)
 	thread1=threading.Thread(target=wifi.hopper, name="hopper")
 	thread2=threading.Thread(target=wifi.run_sniffer, name="run_sniffer")
 	thread3=threading.Thread(target=wifi.sweeper, name="sweeper")	
