@@ -1,4 +1,5 @@
 import serial
+import syslog
 from scapy.all import *
 from netaddr.core import NotRegisteredError
 from netaddr import *
@@ -12,7 +13,7 @@ class WeyeFeye:
 		self.port='/dev/'+port
 		self.iface=iface
 		self.cal=cal
-		self.channel=ch
+		self.channels=ch
 		self.avail_ch=[]
 		self.screenlock = threading.Semaphore(value=1)
 		self.angle=10
@@ -27,17 +28,28 @@ class WeyeFeye:
 			for lines in range(12):
 				print self.ard.readline()
 			
-	def basic_scan(self):
-		
+	'''def basic_scan(self,pkt):
+		if pkt.type == 0 and pkt.subtype == 8:
+	     	try:
+		    
+		    extra = pkt.notdecoded
+		    rssi = -(256-ord(extra[-2:-1]))
+		    #print "rssi", rssi
+		except:
+		    rssi = -100
+		#self.screenlock.acquire()
+		#print "BSSID:    ","WiFi signal strength:", rssi, "dBm of", pkt.addr2, pkt.info#, os.popen('iwlist ' +self.iface+' channel').read()[-13:][:-2]
+	'''	
 	def hopper(self):
 	    if self.channels=="all":
-	    	for n in range (1,14):
-			time.sleep(1/13)
-			os.system('iwconfig %s channel %d' % (self.iface, n))
-			self.screenlock.acquire()
-			print "Current Channel %d" % (n)
-	    	        self.screenlock.release()
-	    else:
+	    	while True:
+		    	for n in range (1,14):
+				time.sleep(1/13)
+				os.system('iwconfig %s channel %d' % (self.iface, n))
+				self.screenlock.acquire()
+				print "Current Channel %d" % (n)
+		    	        self.screenlock.release()
+	    ''' else:
 	    	basic_scan()
 	    	for i in self.avail_ch:
 	    		time.sleep(1/len(self.avail_ch))
@@ -45,7 +57,7 @@ class WeyeFeye:
 			self.screenlock.acquire()
 			print "Current Channel %d" % (n)
 	    	        self.screenlock.release()
-	    		
+	    	'''	
 
 	def PacketHandler(self,pkt) :
 	   
